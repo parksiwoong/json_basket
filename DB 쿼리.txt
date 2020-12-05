@@ -1,0 +1,111 @@
+CREATE DATABASE `ssg`;
+
+CREATE TABLE `ssg`.`users`
+(
+    `user_index`    INT UNSIGNED  NOT NULL AUTO_INCREMENT,
+    `user_email`    NVARCHAR(100) NOT NULL,
+    `user_password` NVARCHAR(128) NOT NULL,
+    `user_nickname` NVARCHAR(10)  NOT NULL,
+    `admin_flag`    BOOLEAN       NOT NULL DEFAULT FALSE,
+    CONSTRAINT PRIMARY KEY (`user_index`),
+    CONSTRAINT UNIQUE (`user_email`),
+    CONSTRAINT UNIQUE (`user_nickname`)
+);
+
+CREATE TABLE `ssg`.`items`
+(
+    `item_index` INT UNSIGNED  NOT NULL AUTO_INCREMENT,
+    `item_name`  NVARCHAR(100) NOT NULL,
+    `item_price` INT UNSIGNED  NOT NULL,
+    CONSTRAINT PRIMARY KEY (`item_index`)
+);
+
+CREATE TABLE `ssg`.`item_colors`
+(
+    `color_index`           INT UNSIGNED  NOT NULL AUTO_INCREMENT,
+    `item_index`            INT UNSIGNED  NOT NULL,
+    `color_name`            NVARCHAR(100) NOT NULL,
+    `color_price_variation` INT           NOT NULL DEFAULT 0,
+    CONSTRAINT PRIMARY KEY (`color_index`),
+    CONSTRAINT FOREIGN KEY (`item_index`) REFERENCES `ssg`.`items` (`item_index`) ON DELETE CASCADE,
+    CONSTRAINT UNIQUE (`color_name`)
+);
+
+CREATE TABLE `ssg`.`item_sizes`
+(
+    `size_index`           INT UNSIGNED  NOT NULL AUTO_INCREMENT,
+    `item_index`           INT UNSIGNED  NOT NULL,
+    `size_name`            NVARCHAR(100) NOT NULL,
+    `size_price_variation` INT           NOT NULL DEFAULT 0,
+    CONSTRAINT PRIMARY KEY (`size_index`),
+    CONSTRAINT FOREIGN KEY (`item_index`) REFERENCES `ssg`.`items` (`item_index`) ON DELETE CASCADE,
+    CONSTRAINT UNIQUE (`size_name`)
+);
+
+CREATE TABLE `ssg`.`baskets`
+(
+    `basket_index`    INT UNSIGNED      NOT NULL AUTO_INCREMENT,
+    `user_index`      INT UNSIGNED      NOT NULL,
+    `item_index`      INT UNSIGNED      NOT NULL,
+    `color_index`     INT UNSIGNED      NOT NULL,
+    `size_index`      INT UNSIGNED      NOT NULL,
+    `basket_datetime` DATETIME          NOT NULL DEFAULT CURRENT_TIMESTAMP(),
+    `basket_count`    SMALLINT UNSIGNED NOT NULL,
+    CONSTRAINT PRIMARY KEY (`basket_index`),
+    CONSTRAINT FOREIGN KEY (`user_index`) REFERENCES `ssg`.`users` (`user_index`) ON DELETE CASCADE,
+    CONSTRAINT FOREIGN KEY (`item_index`, `color_index`) REFERENCES `ssg`.`item_colors` (`item_index`, `color_index`) ON DELETE CASCADE,
+    CONSTRAINT FOREIGN KEY (`item_index`, `size_index`) REFERENCES `ssg`.`item_sizes` (`item_index`, `size_index`) ON DELETE CASCADE
+#     CONSTRAINT FOREIGN KEY (`item_index`) REFERENCES `ssg`.`items` (`item_index`) ON DELETE CASCADE,
+#     CONSTRAINT FOREIGN KEY (`color_index`) REFERENCES `ssg`.`item_colors` (`color_index`) ON DELETE CASCADE,
+#     CONSTRAINT FOREIGN KEY (`sizes_index`) REFERENCES `ssg`.`item_sizes` (`size_index`) ON DELETE CASCADE
+);
+
+/*----------------------------------------------- 여기 까지 -----------------------------------------------*/
+
+SELECT `user_index`    AS `userIndex`,
+       `user_email`    AS `userEmail`,
+       `user_password` AS `userPassword`,
+       `user_nickname` AS `userNickname`
+FROM `ssg`.`users`
+WHERE `user_email` = ?
+  AND `user_password` = ?
+LIMIT 1;
+
+INSERT INTO `ssg`.`items` (`item_name`, `item_price`)
+VALUES (?, ?);
+
+INSERT INTO `ssg`.`baskets` (`user_index`,
+                             `item_index`,
+                             `color_index`,
+                             `size_index`,
+                             `basket_count`)
+VALUES (?, ?, ?, ?, ?);
+
+SELECT COUNT(`basket_index`) AS `count`
+FROM `ssg`.`baskets`
+WHERE `user_index` = ?
+  AND `item_index` = ?
+  AND `color_index` = ?
+  AND `size_index` = ?;
+
+UPDATE `ssg`.`baskets`
+SET `basket_count` = `basket_count` + ?
+WHERE `user_index` = ?
+  AND `item_index` = ?
+  AND `color_index` = ?
+  AND `size_index` = ?;
+
+SELECT `item`.`item_name`              AS `itemName`,
+       `item`.`item_price`             AS `itemPrice`,
+       `color`.`color_name`            AS `colorName`,
+       `color`.`color_price_variation` AS `colorVariation`,
+       `size`.`size_name`              AS `sizeName`,
+       `size`.`size_price_variation`   AS `sizeVariation`,
+       `basket`.`basket_datetime`      AS `basketDateTime`,
+       `basket`.`basket_count`         AS `basketCount`
+FROM `ssg`.`baskets` AS `basket`
+         INNER JOIN `ssg`.`items` AS `item` ON `item`.`item_index` = `basket`.`item_index`
+         INNER JOIN `ssg`.`item_colors` AS `color` ON `color`.`item_index` = `basket`.`item_index`
+         INNER JOIN `ssg`.`item_sizes` AS `size` ON `size`.`item_index` = `basket`.`item_index`
+WHERE `user_index` = ?
+GROUP BY `basket`.`basket_index`;
